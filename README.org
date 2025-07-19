@@ -1,215 +1,151 @@
-#+TITLE: project-check.el
-#+AUTHOR: Your Name
-#+EMAIL: your.email@example.com
+#+TITLE: project-checker.el
 
-* project-check.el
+* project-checker.el
 
-Automatic project and file checking for Emacs development workflows.
+A package that provides automatic project-wide and file-specific checks in Emacs.
 
 ** Overview
 
-=project-check= provides seamless integration of linting, testing, and other development tools into your Emacs workflow. It automatically runs file-specific checks when you save files and provides easy access to project-wide checks.
+=project-checker= is a package designed to enhance development workflows—especially for TypeScript projects—by providing diagnostics that eglot + flymake cannot obtain. It also displays test results from tools like Jest directly in Emacs and allows jumping to error locations.
 
-** Features
+*** Key Features
 
-- 🔄 *Automatic file checking* - Run linters, formatters, and type checkers on save
-- 🚀 *Manual project checks* - Execute full project tests and analysis on demand
-- 🎯 *Compilation integration* - Navigate directly to errors and warnings
-- ⚙️ *Flexible configuration* - Per-project setup using =.dir-locals.el=
-- 🛠️ *Tool agnostic* - Works with any command-line tool (ESLint, Prettier, Jest, etc.)
+- Automatic checks (linting, formatting, etc.) on file save
+- Manual project-wide checks (tests, full-project linting)
+- Integration with Emacs =compilation-mode= for error navigation
+- Project-specific configuration via =.dir-locals.el=
+- Supports arbitrary shell commands and build tools
+
+*** Motivation
+
+- In TypeScript projects, eglot + flymake cannot retrieve diagnostics for unopened files; this tool retrieves full-project diagnostics
+- Display Jest results directly in Emacs and enable jumping to failing test locations
+- Projects often use different tools/libraries (e.g., Jest, Vitest), requiring flexible configuration via =.dir-locals.el=
 
 ** Installation
 
 *** Manual Installation
 
-1. Download =project-check.el= to your Emacs configuration directory
-2. Add to your =init.el=:
+1. Download =project-checker.el= and place it in your =load-path=
+2. Add the following to your =init.el=:
 
-#+begin_src emacs-lisp
-  (load-path-add "path/to/project-check")
-  (require 'project-check)
-
-  ;; Enable for all programming modes
-  (project-check-setup)
-
-  ;; Or enable manually for specific modes
-  (add-hook 'js-mode-hook #'project-check-mode)
-  (add-hook 'python-mode-hook #'project-check-mode)
-#+end_src
+#+BEGIN_SRC emacs-lisp
+  (require 'project-checker)
+  (add-hook 'prog-mode-hook 'project-checker-mode)
+#+END_SRC
 
 *** Using use-package
 
-#+begin_src emacs-lisp
-  (use-package project-check
-    :load-path "path/to/project-check"
-    :hook (prog-mode . project-check-mode))
-#+end_src
+#+BEGIN_SRC emacs-lisp
+  (use-package project-checker
+    :vc (:url "https://github.com/kn66/project-checker.el"
+         :rev :newest)
+    :hook (prog-mode . project-checker-mode)
+    :init
+    ;; Set safe variables to avoid warnings
+    (setopt safe-local-variable-values
+            '((project-checker-project-commands . ("npx tsx --noEmit"
+                                                   "npx eslint ./src"
+                                                   "npx jest --passWithNoTests --silent"))
+              (project-checker-file-commands . ("npx eslint %S"
+                                                "npx jest %b.test.ts --passWithNoTests --silent --no-coverage")))))
+#+END_SRC
+
+** Basic Usage
+
+*** 1. Enable the Mode
+
+Activate =project-checker-mode= in your programming buffer:
+
+#+BEGIN_SRC emacs-lisp
+  M-x project-checker-mode
+#+END_SRC
+
+*** 2. Configure Commands
+
+Set commands via =.dir-locals.el= or buffer-local variables.
+
+*** 3. Automatic Checks
+
+File-specific commands are automatically executed upon file save.
+
+*** 4. Project-wide Checks
+
+#+BEGIN_SRC emacs-lisp
+  M-x project-checker-run-project-commands
+#+END_SRC
 
 ** Configuration
 
-Configuration is done per-project using =.dir-locals.el= files. This allows each project to define its own checking commands.
-
-*** Basic Example
+*** Project-specific Configuration (Recommended)
 
 Create a =.dir-locals.el= file in your project root:
 
-#+begin_src emacs-lisp
-  ((nil . ((project-check-project-commands . ("npm test" "npm run lint"))
-           (project-check-file-commands . ("eslint %s" "prettier --check %s")))))
-#+end_src
+**** Example: TypeScript + Jest Project
 
-*** Advanced Examples
+#+BEGIN_SRC emacs-lisp
+  ((nil . ((project-checker-project-commands . ("npx tsx --noEmit"
+                                                "npx eslint ./src"
+                                                "npx jest --passWithNoTests --silent"))
+           (project-checker-file-commands . ("npx eslint %S"
+                                             "npx jest %b.test.ts --passWithNoTests --silent --no-coverage")))))
+#+END_SRC
 
-**** JavaScript/TypeScript Project
+**** Example: Vue.js Project (Unverified)
 
-#+begin_src emacs-lisp
-  ((nil . ((project-check-project-commands . ("npm run test"
-                                              "npm run lint"
-                                              "npm run type-check"))
-           (project-check-file-commands . ("eslint %s"
-                                           "prettier --check %s"))))
+#+BEGIN_SRC emacs-lisp
+  ((nil . ((project-checker-project-commands . ("npm run test:unit"
+                                                "npm run lint"
+                                                "vue-tsc --noEmit"))
+           (project-checker-file-commands . ("npx eslint %S")))))
+#+END_SRC
 
-   ;; TypeScript-specific settings
-   (typescript-mode . ((project-check-file-commands . ("tsc --noEmit %s"
-                                                       "eslint %s")))))
-#+end_src
+**** Example: Python Project (Unverified)
 
-**** Python Project
+#+BEGIN_SRC emacs-lisp
+  ((nil . ((project-checker-project-commands . ("python -m pytest"
+                                                "flake8"
+                                                "mypy ."))
+           (project-checker-file-commands . ("flake8 %s"
+                                             "mypy %s")))))
+#+END_SRC
 
-#+begin_src emacs-lisp
-  ((nil . ((project-check-project-commands . ("python -m pytest"
-                                              "flake8 ."
-                                              "mypy ."))
-           (project-check-file-commands . ("flake8 %s"
-                                           "mypy %s"
-                                           "black --check %s")))))
-#+end_src
+** File Placeholders
 
-**** Rust Project
+The following placeholders can be used in file command templates:
 
-#+begin_src emacs-lisp
-  ((nil . ((project-check-project-commands . ("cargo test"
-                                              "cargo clippy"))
-           (project-check-file-commands . ("cargo clippy --message-format=short"
-                                           "rustfmt --check %s")))))
-#+end_src
+| Placeholder | Description                             | Example                                  |
+|-------------+-----------------------------------------+------------------------------------------|
+| =%s=        | Relative path from project root         | =src/components/Button.tsx=              |
+| =%n=        | Relative path without extension         | =src/components/Button=                  |
+| =%b=        | Base name (no directory, no extension)  | =Button=                                 |
+| =%d=        | Relative directory path                 | =src/components/=                        |
+| =%S=        | Absolute path                           | =/home/user/project/src/Button.tsx=      |
+| =%N=        | Absolute path without extension         | =/home/user/project/src/Button=          |
+| =%D=        | Absolute directory path                 | =/home/user/project/src/components/=     |
 
-** Usage
+** Commands
 
-*** Automatic File Checking
+*** Interactive Commands
 
-When =project-check-mode= is enabled:
+- =M-x project-checker-mode= : Toggle the minor mode
+- =M-x project-checker-run-project-commands= : Manually run project-wide checks
 
-1. Save any file in your project
-2. Configured file commands run automatically
-3. Results appear in compilation buffers
-4. Use =M-g n= (=next-error=) and =M-g p= (=previous-error=) to navigate issues
+*** Integration with Compilation-mode
 
-*** Manual Project Checking
+Since results are shown in =compilation-mode=, the following commands can be used for navigation:
 
-Run project-wide checks with:
+- =M-x next-error= (=C-x `=) : Jump to the next error
+- =M-x previous-error= : Jump to the previous error
+- =M-x first-error= : Jump to the first error
 
-- =M-x project-check-run-project-commands=
-- Or bind to a key: =(global-set-key (kbd "C-c p c") #'project-check-run-project-commands)=
+** Custom Variables
 
-** Configuration Variables
+*** =project-checker-project-commands=
 
-*** =project-check-project-commands=
+List of shell commands for project-wide checks.
 
-List of shell commands for full project checking. These commands run from the project root directory.
+*** =project-checker-file-commands=
 
-#+begin_src emacs-lisp
-  (setq-local project-check-project-commands
-              '("npm test"
-                "npm run lint"
-                "npm run build"))
-#+end_src
+List of command templates for file-specific checks.
 
-*** =project-check-file-commands=
-
-List of command templates for single file checking. Use =%s= as placeholder for the file path (relative to project root).
-
-#+begin_src emacs-lisp
-  (setq-local project-check-file-commands
-              '("eslint %s"
-                "prettier --check %s"
-                "tsc --noEmit %s"))
-#+end_src
-
-** Tips and Best Practices
-
-*** Optimizing Jest Output
-
-For cleaner test output, use Jest's built-in options:
-
-#+begin_src emacs-lisp
-  ((nil . ((project-check-project-commands . ("npx jest --passWithNoTests --silent")))))
-#+end_src
-
-*** File-Specific Commands
-
-You can set different commands for different file types:
-
-#+begin_src emacs-lisp
-  ((nil . ((project-check-project-commands . ("npm test"))))
-
-   (js-mode . ((project-check-file-commands . ("eslint %s"))))
-
-   (css-mode . ((project-check-file-commands . ("stylelint %s")))))
-#+end_src
-
-*** Performance Considerations
-
-- File commands run on every save - keep them fast
-- Use file-specific commands for quick feedback (linting, formatting)
-- Use project commands for slower operations (full test suites)
-
-*** Integration with Other Tools
-
-Works great with:
-- ESLint, Prettier, TSC (JavaScript/TypeScript)
-- Flake8, Black, MyPy (Python)
-- Clippy, rustfmt (Rust)
-- And any command-line tool that outputs to stdout/stderr
-
-** Troubleshooting
-
-*** Commands Not Running
-
-1. Check that =project-check-mode= is enabled: =M-x project-check-mode=
-2. Verify your =.dir-locals.el= syntax
-3. Ensure you're in a project directory (=M-x project-current=)
-4. Check the =*Messages*= buffer for error messages
-
-*** Compilation Buffers
-
-- Results appear in =*project-check:COMMAND*= buffers
-- Use =C-x `= (=next-error=) to jump to issues
-- Customize =compilation-mode= for different highlighting/behavior
-
-*** Path Issues
-
-File paths are relative to the project root. If commands can't find files:
-
-#+begin_src emacs-lisp
-  ;; Use absolute paths if needed
-  (project-check-file-commands . ("eslint $(pwd)/%s"))
-#+end_src
-
-** Contributing
-
-Contributions welcome! Please:
-
-1. Fork the repository
-2. Create a feature branch
-3. Add tests if applicable
-4. Submit a pull request
-
-## License
-
-This project is licensed under the GPL-3.0 License - see the LICENSE file for details.
-
-## Acknowledgments
-
-- Built on Emacs' excellent =project.el= and =compile.el= packages
-- Inspired by various IDE features for seamless development workflows
