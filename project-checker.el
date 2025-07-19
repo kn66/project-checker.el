@@ -85,10 +85,28 @@ Example:
 
 The command is executed in the project root directory. Results are
 displayed in a compilation-mode buffer, allowing for easy navigation
-to errors and warnings."
-  (let ((bufname (format "*project-checker:%s*" name)))
-    (compilation-start
-     command 'compilation-mode (lambda (_) bufname))))
+to errors and warnings.
+
+If the command completes successfully with no errors, the buffer is
+automatically closed."
+  (let* ((bufname (format "*project-checker:%s*" name))
+         (buffer
+          (compilation-start
+           command 'compilation-mode (lambda (_) bufname))))
+    (with-current-buffer buffer
+      (let ((buffer-copy buffer)) ;; ensure correct binding
+        (add-hook
+         'compilation-finish-functions
+         (lambda (_buf msg)
+           (when
+               (and
+                (string-match "finished" msg)
+                ;; only close if buffer name starts with project-checker:
+                (string-prefix-p
+                 "*project-checker:" (buffer-name buffer-copy)))
+             (kill-buffer buffer-copy)))
+         nil
+         t)))))
 
 (defun project-checker--run-project-commands ()
   "Run all commands defined in project-checker-project-commands.
@@ -102,20 +120,31 @@ project-checker-project-commands is nil or empty, no commands are run."
 (defun project-checker--expand-file-template (template file)
   "Expand TEMPLATE with file placeholders.
 
+FILE is a relative file path from the project root.
 Supported placeholders:
-- %s: full file path
-- %n: file path without extension
-- %b: basename without directory and extension
-- %d: directory path"
-  (let* ((file-no-ext (file-name-sans-extension file))
+- %s: relative file path
+- %n: relative file path without extension
+- %b: basename (no directory, no extension)
+- %d: relative directory path
+- %S: absolute file path
+- %N: absolute file path without extension
+- %D: absolute directory path"
+  (let* ((project-root (project-root (project-current)))
+         (absolute-file (expand-file-name file project-root))
+         (file-no-ext (file-name-sans-extension file))
+         (abs-no-ext (file-name-sans-extension absolute-file))
          (basename (file-name-base file))
-         (directory (file-name-directory file)))
+         (directory (file-name-directory file))
+         (abs-dir (file-name-directory absolute-file)))
     (format-spec
      template
      `((?s . ,file)
        (?n . ,file-no-ext)
        (?b . ,basename)
-       (?d . ,(or directory ""))))))
+       (?d . ,(or directory ""))
+       (?S . ,absolute-file)
+       (?N . ,abs-no-ext)
+       (?D . ,(or abs-dir ""))))))
 
 (defun project-checker--run-file-commands ()
   "Run file-specific commands using project-checker-file-commands.
