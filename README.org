@@ -1,0 +1,215 @@
+#+TITLE: project-check.el
+#+AUTHOR: Your Name
+#+EMAIL: your.email@example.com
+
+* project-check.el
+
+Automatic project and file checking for Emacs development workflows.
+
+** Overview
+
+=project-check= provides seamless integration of linting, testing, and other development tools into your Emacs workflow. It automatically runs file-specific checks when you save files and provides easy access to project-wide checks.
+
+** Features
+
+- 🔄 *Automatic file checking* - Run linters, formatters, and type checkers on save
+- 🚀 *Manual project checks* - Execute full project tests and analysis on demand
+- 🎯 *Compilation integration* - Navigate directly to errors and warnings
+- ⚙️ *Flexible configuration* - Per-project setup using =.dir-locals.el=
+- 🛠️ *Tool agnostic* - Works with any command-line tool (ESLint, Prettier, Jest, etc.)
+
+** Installation
+
+*** Manual Installation
+
+1. Download =project-check.el= to your Emacs configuration directory
+2. Add to your =init.el=:
+
+#+begin_src emacs-lisp
+  (load-path-add "path/to/project-check")
+  (require 'project-check)
+
+  ;; Enable for all programming modes
+  (project-check-setup)
+
+  ;; Or enable manually for specific modes
+  (add-hook 'js-mode-hook #'project-check-mode)
+  (add-hook 'python-mode-hook #'project-check-mode)
+#+end_src
+
+*** Using use-package
+
+#+begin_src emacs-lisp
+  (use-package project-check
+    :load-path "path/to/project-check"
+    :hook (prog-mode . project-check-mode))
+#+end_src
+
+** Configuration
+
+Configuration is done per-project using =.dir-locals.el= files. This allows each project to define its own checking commands.
+
+*** Basic Example
+
+Create a =.dir-locals.el= file in your project root:
+
+#+begin_src emacs-lisp
+  ((nil . ((project-check-project-commands . ("npm test" "npm run lint"))
+           (project-check-file-commands . ("eslint %s" "prettier --check %s")))))
+#+end_src
+
+*** Advanced Examples
+
+**** JavaScript/TypeScript Project
+
+#+begin_src emacs-lisp
+  ((nil . ((project-check-project-commands . ("npm run test"
+                                              "npm run lint"
+                                              "npm run type-check"))
+           (project-check-file-commands . ("eslint %s"
+                                           "prettier --check %s"))))
+
+   ;; TypeScript-specific settings
+   (typescript-mode . ((project-check-file-commands . ("tsc --noEmit %s"
+                                                       "eslint %s")))))
+#+end_src
+
+**** Python Project
+
+#+begin_src emacs-lisp
+  ((nil . ((project-check-project-commands . ("python -m pytest"
+                                              "flake8 ."
+                                              "mypy ."))
+           (project-check-file-commands . ("flake8 %s"
+                                           "mypy %s"
+                                           "black --check %s")))))
+#+end_src
+
+**** Rust Project
+
+#+begin_src emacs-lisp
+  ((nil . ((project-check-project-commands . ("cargo test"
+                                              "cargo clippy"))
+           (project-check-file-commands . ("cargo clippy --message-format=short"
+                                           "rustfmt --check %s")))))
+#+end_src
+
+** Usage
+
+*** Automatic File Checking
+
+When =project-check-mode= is enabled:
+
+1. Save any file in your project
+2. Configured file commands run automatically
+3. Results appear in compilation buffers
+4. Use =M-g n= (=next-error=) and =M-g p= (=previous-error=) to navigate issues
+
+*** Manual Project Checking
+
+Run project-wide checks with:
+
+- =M-x project-check-run-project-commands=
+- Or bind to a key: =(global-set-key (kbd "C-c p c") #'project-check-run-project-commands)=
+
+** Configuration Variables
+
+*** =project-check-project-commands=
+
+List of shell commands for full project checking. These commands run from the project root directory.
+
+#+begin_src emacs-lisp
+  (setq-local project-check-project-commands
+              '("npm test"
+                "npm run lint"
+                "npm run build"))
+#+end_src
+
+*** =project-check-file-commands=
+
+List of command templates for single file checking. Use =%s= as placeholder for the file path (relative to project root).
+
+#+begin_src emacs-lisp
+  (setq-local project-check-file-commands
+              '("eslint %s"
+                "prettier --check %s"
+                "tsc --noEmit %s"))
+#+end_src
+
+** Tips and Best Practices
+
+*** Optimizing Jest Output
+
+For cleaner test output, use Jest's built-in options:
+
+#+begin_src emacs-lisp
+  ((nil . ((project-check-project-commands . ("npx jest --passWithNoTests --silent")))))
+#+end_src
+
+*** File-Specific Commands
+
+You can set different commands for different file types:
+
+#+begin_src emacs-lisp
+  ((nil . ((project-check-project-commands . ("npm test"))))
+
+   (js-mode . ((project-check-file-commands . ("eslint %s"))))
+
+   (css-mode . ((project-check-file-commands . ("stylelint %s")))))
+#+end_src
+
+*** Performance Considerations
+
+- File commands run on every save - keep them fast
+- Use file-specific commands for quick feedback (linting, formatting)
+- Use project commands for slower operations (full test suites)
+
+*** Integration with Other Tools
+
+Works great with:
+- ESLint, Prettier, TSC (JavaScript/TypeScript)
+- Flake8, Black, MyPy (Python)
+- Clippy, rustfmt (Rust)
+- And any command-line tool that outputs to stdout/stderr
+
+** Troubleshooting
+
+*** Commands Not Running
+
+1. Check that =project-check-mode= is enabled: =M-x project-check-mode=
+2. Verify your =.dir-locals.el= syntax
+3. Ensure you're in a project directory (=M-x project-current=)
+4. Check the =*Messages*= buffer for error messages
+
+*** Compilation Buffers
+
+- Results appear in =*project-check:COMMAND*= buffers
+- Use =C-x `= (=next-error=) to jump to issues
+- Customize =compilation-mode= for different highlighting/behavior
+
+*** Path Issues
+
+File paths are relative to the project root. If commands can't find files:
+
+#+begin_src emacs-lisp
+  ;; Use absolute paths if needed
+  (project-check-file-commands . ("eslint $(pwd)/%s"))
+#+end_src
+
+** Contributing
+
+Contributions welcome! Please:
+
+1. Fork the repository
+2. Create a feature branch
+3. Add tests if applicable
+4. Submit a pull request
+
+## License
+
+This project is licensed under the GPL-3.0 License - see the LICENSE file for details.
+
+## Acknowledgments
+
+- Built on Emacs' excellent =project.el= and =compile.el= packages
+- Inspired by various IDE features for seamless development workflows
