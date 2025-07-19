@@ -4,6 +4,10 @@
 
 A package that provides automatic project-wide and file-specific checks in Emacs.
 
+[[./screenshots/screenshot1.png]]
+
+[[./screenshots/screenshot2.png]]
+
 ** Overview
 
 =project-checker= is a package designed to enhance development workflows—especially for TypeScript projects—by providing diagnostics that eglot + flymake cannot obtain. It also displays test results from tools like Jest directly in Emacs and allows jumping to error locations.
